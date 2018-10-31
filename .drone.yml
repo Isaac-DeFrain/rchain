@@ -85,14 +85,13 @@ pipeline:
     when:
       event: [ push, tag ]
 
-  make-rpm:
+  package-rpm:
     <<: *sbtenv
     commands:
       - env JAVAC_VERSION=1.8 sbt clean compile it:compile doc node/rpm:packageBin
     volumes:
       - /var/cache/rchain-build/.sbt:/root/.sbt
       - /var/cache/rchain-build/.ivy2:/root/.ivy2
-      - /var/run/docker.sock:/var/run/docker.sock
     when:
       event: [ push, tag ]
 
