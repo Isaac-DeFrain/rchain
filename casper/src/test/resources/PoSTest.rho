@@ -38,16 +38,16 @@ match (
       rl!(`rho:lang:listOps`, *ListOpsCh) |
       rl!(`rho:id:zphjgsfy13h1k85isc8rtwtgt3t9zzt5pjd5ihykfmyapfc4wt3x5h`, *RhoSpecCh) |
       makeSysAuthToken!(*sysAuthTokenCh) |
-      for(@(_, RhoSpec) <- RhoSpecCh;
-          @(_, PoS) <- PoSCh;
-          @(_, RevVault) <- RevVaultCh;
-          @posRevAddress <- posRevAddressCh;
-          @(_, ListOps) <- ListOpsCh;
-          @sysAuthToken <- sysAuthTokenCh) {
+      for (@(_, RhoSpec)  <- RhoSpecCh;
+           @(_, PoS)      <- PoSCh;
+           @(_, RevVault) <- RevVaultCh;
+           @posRevAddress <- posRevAddressCh;
+           @(_, ListOps)  <- ListOpsCh;
+           @sysAuthToken  <- sysAuthTokenCh) {
         stdlog!("info", {"posRevAddress":posRevAddress}) |
 
         @RevVault!("findOrCreate", posRevAddress, *posVaultCh) |
-        for(@(true, posVault) <- posVaultCh) {
+        for (@(true, posVault) <- posVaultCh) {
           @RhoSpec!("testSuite", *setup,
             [
               ("PoS is created with empty bonds", *test_make_pos_succeeds),
@@ -77,9 +77,8 @@ match (
                 vaultCh in {
               revAddressOps!("fromPublicKey", pk.hexToBytes(), *revAddrCh) |
               makeDeployerId!("deployerId", pk.hexToBytes(), *deployerIdCh) |
-              for (
-                @revAddress <- revAddrCh;
-                @deployerId <- deployerIdCh
+              for (@revAddress <- revAddrCh;
+                   @deployerId <- deployerIdCh
               ) {
                 @RevVault!("findOrCreate", revAddress, *vaultCh) |
                 for (@(true, vault) <- vaultCh) {
@@ -93,7 +92,8 @@ match (
             new bondsCh, rewardsCh, rewardsZeroCh, rewardsZeroPred in {
               @PoS!("getBonds", *bondsCh) |
               @PoS!("getRewards", *rewardsCh) |
-              for ( @bonds <- bondsCh; @rewards <- rewardsCh) {
+              for (@bonds   <- bondsCh;
+                   @rewards <- rewardsCh) {
                 @ListOps!("forall", rewards.toList(), *rewardsZeroPred, *rewardsZeroCh) |
                 contract rewardsZeroPred(@(_, reward), resultCh) = {
                   resultCh!(reward == 0)
@@ -134,18 +134,18 @@ match (
               for (@user1PubKey, _, @user1Vault, @user1DeployerId <- setupCh) {
                 getPosBalance!(*initialPosBalanceCh) |
                 @user1Vault!("balance", *initialUserBalanceCh) |
-                for(@initialPosBalance <- initialPosBalanceCh;
-                    @initialUserBalance <- initialUserBalanceCh) {
+                for (@initialPosBalance  <- initialPosBalanceCh;
+                     @initialUserBalance <- initialUserBalanceCh) {
                   @PoS!("bond", user1DeployerId, 100, *retCh) |
                   for (@(true, _) <- retCh) {
                     @PoS!("getBonds", *bondsCh) |
                     getPosBalance!(*finalPosBalanceCh) |
                     @user1Vault!("balance", *finalUserBalanceCh) |
                     @PoS!("getRewards", *rewardsCh) |
-                    for(@finalPosBalance <- finalPosBalanceCh;
-                        @finalUserBalance <- finalUserBalanceCh;
-                        @bonds <- bondsCh;
-                        @rewards <- rewardsCh) {
+                    for (@finalPosBalance  <- finalPosBalanceCh;
+                         @finalUserBalance <- finalUserBalanceCh;
+                         @bonds            <- bondsCh;
+                         @rewards          <- rewardsCh) {
                       match bonds.get(user1PubKey) {
                         bondAmount => {
                           rhoSpec!("assertMany",
@@ -179,10 +179,10 @@ match (
                 @user1Vault!("balance", *initialUserBalanceCh) |
                 @PoS!("getBonds", *initialBondsCh) |
                 @PoS!("getRewards", *initialRewardsCh) |
-                for(@initialPosBalance <- initialPosBalanceCh;
-                    @initialUserBalance <- initialUserBalanceCh;
-                    @initialBonds <- initialBondsCh;
-                    @initialRewards <- initialRewardsCh) {
+                for (@initialPosBalance  <- initialPosBalanceCh;
+                     @initialUserBalance <- initialUserBalanceCh;
+                     @initialBonds       <- initialBondsCh;
+                     @initialRewards     <- initialRewardsCh) {
                   @PoS!("bond", user1DeployerId, 100, *retCh) |
                   for ( @(true, _) <- retCh) {
                     @PoS!("withdraw", user1DeployerId, *withdrawCh) |
@@ -193,10 +193,10 @@ match (
                         getPosBalance!(*finalPosBalanceCh) |
                         @user1Vault!("balance", *finalUserBalanceCh) |
                         @PoS!("getRewards", *finalRewardsCh) |
-                        for(@finalPosBalance <- finalPosBalanceCh;
-                            @finalUserBalance <- finalUserBalanceCh;
-                            @finalBonds <- finalBondsCh;
-                            @finalRewards <- finalRewardsCh) {
+                        for (@finalPosBalance  <- finalPosBalanceCh;
+                             @finalUserBalance <- finalUserBalanceCh;
+                             @finalBonds       <- finalBondsCh;
+                             @finalRewards     <- finalRewardsCh) {
                           rhoSpec!("assertMany",
                             [
                               ((finalBonds, "==", initialBonds), "bonds don't change"),
@@ -224,7 +224,7 @@ match (
               for (@validatorPubKey, _, @validatorVault, @validatorDeployerId <- setupCh) {
                 @validatorVault!("balance", *initialValidatorBalanceCh) |
                 @PoS!("getBonds", *initialBondsCh) |
-                for(@initialValidatorBalance <- initialValidatorBalanceCh;
+                for (@initialValidatorBalance <- initialValidatorBalanceCh;
                     @initialBonds <- initialBondsCh) {
                   @PoS!("bond", validatorDeployerId, 100, *retCh0) |
                   for ( @(true, _) <- retCh0) {
@@ -234,7 +234,8 @@ match (
                       for (@userPubKey, _, @userVault, @userDeployerId <- setupCh) {
                         @PoS!("chargeDeploy", userDeployerId, 100, sysAuthToken, *retCh0) |
                         @PoS!("refundDeploy", 0, sysAuthToken, *retCh1) |
-                        for ( @(true, _) <- retCh0; @(true, _) <- retCh1){
+                        for (@(true, _) <- retCh0;
+                             @(true, _) <- retCh1){
                           closeBlock!(*closeBlockCh) |
                           for (_ <- closeBlockCh) {
                             @PoS!("withdraw", validatorDeployerId, *withdrawCh) |
@@ -243,8 +244,8 @@ match (
                               for (_ <- closeBlockCh) {
                                 @validatorVault!("balance", *finalValidatorBalanceCh) |
                                 @PoS!("getBonds", *finalBondsCh) |
-                                for(@finalBonds <- finalBondsCh;
-                                    @finalValidatorBalance <- finalValidatorBalanceCh) {
+                                for (@finalBonds            <- finalBondsCh;
+                                     @finalValidatorBalance <- finalValidatorBalanceCh) {
                                   rhoSpec!("assertMany",
                                     [
                                       ((finalBonds, "==", initialBonds), "bonds don't change"),
@@ -272,13 +273,13 @@ match (
               for (@user1PubKey, _, @user1Vault, @user1DeployerId <- setupCh) {
                 getPosBalance!(*initialPosBalanceCh) |
                 @user1Vault!("balance", *initialUser1BalanceCh) |
-                for(@initialPosBalance <- initialPosBalanceCh;
-                    @initialUser1Balance <- initialUser1BalanceCh) {
+                for (@initialPosBalance   <- initialPosBalanceCh;
+                     @initialUser1Balance <- initialUser1BalanceCh) {
                   @PoS!("bond", user1DeployerId, 100, *retCh) |
                   for ( @(true, _) <- retCh) {
                     stdlog!("info", "first bond") |
                     prepareUser!("3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333", *setupCh) |
-                    for(@user2PubKey, _, @user2Vault, @user2DeployerId <- setupCh) {
+                    for (@user2PubKey, _, @user2Vault, @user2DeployerId <- setupCh) {
                       @user2Vault!("balance", *initialUser2BalanceCh) |
                       for (@initialUser2Balance <- initialUser2BalanceCh) {
                         @PoS!("bond", user2DeployerId, 200, *retCh) |
@@ -288,10 +289,10 @@ match (
                           getPosBalance!(*finalPosBalanceCh) |
                           @user1Vault!("balance", *finalUser1BalanceCh) |
                           @user2Vault!("balance", *finalUser2BalanceCh) |
-                          for(@finalPosBalance <- finalPosBalanceCh;
-                              @finalUser1Balance <- finalUser1BalanceCh;
-                              @finalUser2Balance <- finalUser2BalanceCh;
-                              @bonds <- retCh) {
+                          for (@finalPosBalance   <- finalPosBalanceCh;
+                               @finalUser1Balance <- finalUser1BalanceCh;
+                               @finalUser2Balance <- finalUser2BalanceCh;
+                               @bonds             <- retCh) {
                             match (bonds.get(user1PubKey), bonds.get(user2PubKey)) {
                               (bondAmount1, bondAmount2) => {
                                 rhoSpec!("assertMany",
@@ -334,20 +335,21 @@ match (
                     getPosBalance!(*initialPosBalanceCh) |
                     @user1Vault!("balance", *initialUser1BalanceCh) |
                     @PoS!("getRewards", *initialRewardsCh) |
-                    for(@initialPosBalance <- initialPosBalanceCh;
-                        @initialUser1Balance <- initialUser1BalanceCh;
-                        @initialRewards <- initialRewardsCh) {
+                    for (@initialPosBalance   <- initialPosBalanceCh;
+                         @initialUser1Balance <- initialUser1BalanceCh;
+                         @initialRewards      <- initialRewardsCh) {
                       @PoS!("chargeDeploy", user1DeployerId, 100, sysAuthToken, *retCh0) |
                       @PoS!("refundDeploy", 0, sysAuthToken, *retCh1) |
-                      for ( @(true, _) <- retCh0; @(true, _) <- retCh1) {
+                      for (@(true, _) <- retCh0;
+                           @(true, _) <- retCh1) {
                         closeBlock!(*closeBlockCh) |
                         for (_ <- closeBlockCh) {
                           getPosBalance!(*finalPosBalanceCh) |
                           @user1Vault!("balance", *finalUser1BalanceCh) |
                           @PoS!("getRewards", *finalRewardsCh) |
-                          for(@finalPosBalance <- finalPosBalanceCh;
-                              @finalUser1Balance <- finalUser1BalanceCh;
-                              @finalRewards <- finalRewardsCh) {
+                          for (@finalPosBalance   <- finalPosBalanceCh;
+                               @finalUser1Balance <- finalUser1BalanceCh;
+                               @finalRewards      <- finalRewardsCh) {
                             @ListOps!("fold", finalRewards.toList(), {}, *computeDelta, *deltaRewardsCh) |
                             contract computeDelta(@(pk, finalReward), @acc, resultCh) = {
                               resultCh!(acc.set(pk, finalReward - initialRewards.getOrElse(pk, 0)))
@@ -405,20 +407,21 @@ match (
                     getPosBalance!(*posBalanceCh) |
                     @userVault!("balance", *userBalanceCh) |
                     @PoS!("getRewards", *rewardsCh) |
-                    for(@initialPosBalance <- posBalanceCh;
-                        @initialUserBalance <- userBalanceCh;
-                        @initialRewards <- rewardsCh) {
+                    for (@initialPosBalance  <- posBalanceCh;
+                         @initialUserBalance <- userBalanceCh;
+                         @initialRewards     <- rewardsCh) {
                       @PoS!("chargeDeploy", userDeployerId, 100, sysAuthToken, *chargeDeployAck) |
                       @PoS!("refundDeploy", 50, sysAuthToken, *refundDeployAck) |
-                      for ( @(true, _) <- chargeDeployAck; @(true, _) <- refundDeployAck) {
+                      for (@(true, _) <- chargeDeployAck;
+                           @(true, _) <- refundDeployAck) {
                         closeBlock!(*closeBlockAck) |
                         for (_ <- closeBlockAck) {
                           getPosBalance!(*posBalanceCh) |
                           @userVault!("balance", *userBalanceCh) |
                           @PoS!("getRewards", *rewardsCh) |
-                          for(@finalPosBalance <- posBalanceCh;
-                              @finalUserBalance <- userBalanceCh;
-                              @finalRewards <- rewardsCh) {
+                          for (@finalPosBalance  <- posBalanceCh;
+                               @finalUserBalance <- userBalanceCh;
+                               @finalRewards     <- rewardsCh) {
                             @ListOps!("fold", finalRewards.toList(), {}, *computeDelta, *deltaRewardsCh) |
                             contract computeDelta(@(pk, finalReward), @acc, resultCh) = {
                               resultCh!(acc.set(pk, finalReward - initialRewards.getOrElse(pk, 0)))
@@ -470,8 +473,8 @@ match (
                 for ( @(result1, _) <- bond1Ch) {
                   @PoS!("getBonds", *initialBondsCh) |
                   @PoS!("getRewards", *initialRewardsCh) |
-                  for ( @initialBonds <- initialBondsCh;
-                        @initialRewards <- initialRewardsCh) {
+                  for (@initialBonds   <- initialBondsCh;
+                       @initialRewards <- initialRewardsCh) {
                     @PoS!("bond", user1DeployerId, 150, *bond2Ch) |
                     for ( @(result2, msg2) <- bond2Ch) {
                       @PoS!("getBonds", *bondsCh) |
@@ -500,8 +503,8 @@ match (
               for (_, _, _, @deployerId <- setupCh) {
                 @PoS!("getBonds", *bondsCh) |
                 @PoS!("getRewards", *initialRewardsCh) |
-                for ( @initialBonds <- bondsCh;
-                      @initialRewards <- initialRewardsCh) {
+                for (@initialBonds   <- bondsCh;
+                     @initialRewards <- initialRewardsCh) {
                   @PoS!("bond", deployerId, transferAmount, *retCh) |
 
                   for ( @(result, msg) <- retCh) {
@@ -537,7 +540,7 @@ match (
                       closeBlock!(*closeBlockCh) |
                       for (_ <- closeBlockCh) {
                         @PoS!("getRewards", *finalRewardsCh) |
-                        for(@finalRewards <- finalRewardsCh) {
+                        for (@finalRewards <- finalRewardsCh) {
                           rhoSpec!("assertMany",
                             [
                               ((Nil, "==", finalRewards.get(validatorPubKey)), "the new validator should have no reward")
@@ -578,7 +581,8 @@ match (
             new ackCh0, activeValidatorsCh, setBlockData(`rho:test:block:data:set`), blockDataSet in {
               @PoS!("closeBlock", sysAuthToken, *ackCh0) |
               @PoS!("getActiveValidators", *activeValidatorsCh) |
-              for (@ack <- ackCh0; @activeValidators <- activeValidatorsCh) {
+              for (@ack              <- ackCh0;
+                   @activeValidators <- activeValidatorsCh) {
                 // For testing we need one of the active validators to be the block sender
                 setBlockData!("sender", activeValidators.nth(0), *blockDataSet) |
                 for (_ <- blockDataSet) {
@@ -600,8 +604,8 @@ match (
                 computeHash!("FF".hexToBytes(), *hashFFCh) |
 
                 for (@result0 <- retCh;
-                     @hash00 <- hash00Ch;
-                     @hashFF <- hashFFCh) {
+                     @hash00  <- hash00Ch;
+                     @hashFF  <- hashFFCh) {
                   @PoS!("commitRandomImage", validatorDeployerId, hash00, *retCh) |
                   for (@result1 <- retCh) {
                     @PoS!("commitRandomImage", validatorDeployerId, hashFF, *retCh) |
