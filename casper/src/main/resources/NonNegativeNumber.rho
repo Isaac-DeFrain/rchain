@@ -14,20 +14,26 @@
  9.  | 4,         | registry           | uri = rho:id:hxyadh1ffypra47ry9mk6b8r1i33ar1w9wjsez4khfe9huzrfcytx9
  ----+------------+--------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------
  */
-new  NonNegativeNumber, rs(`rho:registry:insertSigned:secp256k1`), uriOut in {
+
+new NonNegativeNumber,
+    rs(`rho:registry:insertSigned:secp256k1`),
+    uriOut
+in {
   contract NonNegativeNumber(@init, return) = {
-    new this, valueStore in {
+    new this,
+        valueStore
+    in {
       contract this(@"add", @x, success) = {
         if (x >= 0) {
           for(@v <- valueStore){
             if (v + x >= v) {
               valueStore!(v + x) | success!(true)
             } else {
-              //overflow
               valueStore!(v) | success!(false)
             }
           }
         } else {
+          //overflow
           success!(false)
         }
       } |
@@ -45,12 +51,13 @@ new  NonNegativeNumber, rs(`rho:registry:insertSigned:secp256k1`), uriOut in {
         }
       } |
       contract this(@"value", return) = {
-        for(@v <- valueStore) {
-          valueStore!(v) | return!(v)
+        for(@v <<- valueStore) {
+          return!(v)
         }
       } |
       return!(bundle+{*this}) |
-      match init { //Initial balance is zero if given is negative on non-integer
+      match init {
+        //Initial balance is zero if given is negative or non-integer.
         Int => {
           if (init >= 0) { valueStore!(init)  }
           else           { valueStore!(0) }
@@ -67,5 +74,3 @@ new  NonNegativeNumber, rs(`rho:registry:insertSigned:secp256k1`), uriOut in {
     *uriOut
   )
 }
-  
-  
