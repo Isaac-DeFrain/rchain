@@ -75,7 +75,7 @@ import coop.rchain.rspace.examples.AddressBookExample._
 
 ### Creating `Serialize` Instances
 
-`rspace` uses a *type class*-based API.  The API places simple constraints what Scala data types we can use with `rspace`.
+`rspace` uses a *type class*-based API.  The API places simple constraints on what Scala data types we can use with `rspace`.
 
 If you are unfamiliar with type classes, the [Cats documentation](https://typelevel.org/cats/typeclasses.html) is a great place to start learning about them.
 
@@ -99,7 +99,7 @@ trait Serialize[A] {
 
 Let's try defining an instance of `Serialize` for `Channel` using Java serialization.
 
-First we will need to import some more stuff.
+First, we will need to import some more stuff.
 ```scala
 scala> import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
@@ -149,7 +149,7 @@ scala> val roundTrippedChan = serializeChannel.decode(serializeChannel.encode(ch
 roundTrippedChan: Either[Throwable,coop.rchain.rspace.examples.AddressBookExample.Channel] = Right(Channel(friends))
 ```
 
-Looking at the instance we above we could actually write a function to generate these instances for any type `T` that's a subtype of `scala.Serializable`.
+Looking at the instance above, we could actually write a function to generate these instances for any type `T` that's a subtype of `scala.Serializable`.
 
 In fact, we have provided this convenience function in the `coop.rchain.rspace.examples` package.
 
@@ -206,9 +206,9 @@ Here is the definition of the `Match` type class.
 /**
   * Type class for matching patterns with data.
   *
-  * @tparam P A type representing patterns
-  * @tparam F A type parameter representing a type constructor
-  * @tparam A A type representing data and matched result
+  * @tparam P - a type representing patterns
+  * @tparam E - a type parameter representing a type constructor
+  * @tparam A - a type representing data and matched result
   */
 trait Match[P, E, A] {
 
@@ -458,6 +458,18 @@ scala> val pres8 = space.produce(Channel("friends"), erin, persist = false)
 pres8: cats.Id[Either[Nothing,Option[(coop.rchain.rspace.examples.AddressBookExample.Printer, scala.collection.immutable.Seq[coop.rchain.rspace.examples.AddressBookExample.Entry])]]] = Right(Some((<function1>,List(Entry(Name(Erin,Rush),Address(23 Market St.,Peony,Idaho,224422),erush@lasttraintogoa.net,333-555-1212), Entry(Name(Dan,Walters),Address(40 Shady Lane,Crystal Lake,Idaho,223322),deejwalters@sdf.lonestar.org,444-555-1212)))))
 
 scala> runK(pres7)
+
+=== ENTRY ===
+name:    Rush, Erin
+address: 23 Market St., Peony, Idaho 224422
+email:   erush@lasttraintogoa.net
+phone:   333-555-1212
+
+=== ENTRY ===
+name:    Walters, Dan
+address: 40 Shady Lane, Crystal Lake, Idaho 223322
+email:   deejwalters@sdf.lonestar.org
+phone:   444-555-1212
 ```
 
 Note that we can provide different patterns to match with the data on each channel.
@@ -639,7 +651,7 @@ scala> produceAlice.right.get.isEmpty
 res22: Boolean = true
 ```
 
-After re-setting the RSpace to the state from the saved checkpoint the first produce operation should again return an non-empty result.
+After re-setting the RSpace to the state from the saved checkpoint the first produce operation should again return a non-empty result.
 ```scala
 scala> rollbackExampleSpace.reset(checkpointHash)
 res23: cats.Id[Unit] = ()
@@ -647,8 +659,7 @@ res23: cats.Id[Unit] = ()
 scala> produceAlice.toOption.flatten.isDefined
 res24: Boolean = true
 ```
-And again, every following operation should yield an empty result
-Every following repetition of the operation above should yield an empty result.
+And again, every following repetition of the operation above should yield an empty result.
 ```scala
 scala> produceAlice.right.get.isEmpty
 res25: Boolean = true

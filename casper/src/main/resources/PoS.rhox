@@ -31,7 +31,9 @@ new PoS,
     pickActiveValidators,
     runMVar,
     fst,
-    createUpdateMap,
+    createPerValidatorStates,
+    createPerValidatorStateCh,
+    createPerValidatorStateChs,
     deposit, distributeRewards, distributeRewardDeltas,
     perActiveValidatorPosVaultsCh,
     transferFromBlockSender,
@@ -80,33 +82,33 @@ in {
         for (@(true, posVault) <- posVaultCh;
              @initialActive    <- initialActiveCh) {
           new stateCh,
-              updateCh
+              vStateCh
           in {
-            // State structure:
-            // pendingRewards   : Map[PublickKey, Int] - are accummulated by calling "chargeDeploy"
-            // committedRewards : Map[PublickKey, Int] - are moved from pendingRewards at each closeBlock
-            // activeValidators : List[PublicKey] - the active validators
-            // withdrawers      : Map[PublicKey, Int] - the validators willing to withdraw and the blocknumber when their quarantine ends
-            //                                     This is the beggining of the next epoch after their withdrawal + quarantineLength
-            // allBonds         : Map[PublickKey, Int] - each validator stake
-            stateCh!({
-              "pendingRewards":{},
-              "committedRewards":{},
-              "activeValidators":initialActive,
-              "withdrawers":{},
-              "randomImages":{},
-              "randomNumbers":{},
-              "allBonds":$$initialBonds$$
-            }) |
-            // Initializes updateCh with unforgeable channels for each bonded validator.
-            // TODO: need to update this map during epoch change
-            for (@state <<- stateCh) {
-              new mapCh in {
-                createUpdateMap!(state.get("allBonds"), *mapCh) |
-                for (@map <- mapCh) {
-                  updateCh!(map)
-                }
+            new tmpCh in {
+              createPerValidatorStateChs!(initialActive, *tmpCh) |
+              for (@vStateChsMap <- tmpCh) {
+                // State structure:
+                // pendingRewards   : Map[PublickKey, Int] - are accummulated by calling "chargeDeploy"
+                // committedRewards : Map[PublickKey, Int] - are moved from pendingRewards at each closeBlock
+                // activeValidators : List[PublicKey] - the active validators
+                // withdrawers      : Map[PublicKey, Int] - the validators willing to withdraw and the blocknumber when their quarantine ends
+                //                                     This is the beggining of the next epoch after their withdrawal + quarantineLength
+                // allBonds         : Map[PublickKey, Int] - each validator stake
+                stateCh!({
+                  "pendingRewards":{},
+                  "committedRewards":{},
+                  "activeValidators":initialActive,
+                  "withdrawers":{},
+                  "randomImages":{},
+                  "randomNumbers":{},
+                  "allBonds":$$initialBonds$$,
+                  "stateChs":vStateChsMap
+                })
               }
+            } ||
+            // Initializes per active validator states on their personal update channels.
+            for (@state <<- stateCh) {
+              createPerValidatorStates!(state, state.get("activeValidators"))
             } |
             contract PoS(@"getBonds", returnCh) = {
               for (@state <<- stateCh) {
@@ -132,31 +134,41 @@ in {
                 returnCh!(state.get("committedRewards"))
               }
             } |
-            // TODO: resolve state update (can this update be postponed until epoch change?)
+            // Allows a user to become a bonded validator.
             contract PoS(@"bond", @deployerId, @amount, returnCh) = {
-              new userCh, depositCh, processCh in {
-                runMVar!(*stateCh, *processCh, *returnCh) |
+              new userCh, depositCh, processCh,
+                  getBlockData(`rho:block:data`), blockDataCh
+              in {
+                // Peeks at global state and current block data to access and update the block sender's state.
+                for (@state <<- stateCh) {
+                  getBlockData!(*blockDataCh) |
+                  for (_, _, @sender <- blockDataCh) {
+                    runMVar!(state.get("stateChs").get(sender), *processCh, *returnCh)
+                  }
+                } |
                 getUser!(deployerId, *userCh) |
-                for (@state, resultCh <- processCh;
-                     @userPk          <- userCh) {
-                  if (state.get("allBonds").contains(userPk)) {
-                    resultCh!(state, (false, "Public key is already bonded."))
+                for (@vState, resultCh <- processCh;
+                     @userPk           <- userCh) {
+                  if (vState.get("allBonds").contains(userPk)) {
+                    resultCh!(vState, (false, "Public key is already bonded."))
                   } else if (amount < $$minimumBond$$) {
-                    resultCh!(state, (false, "Bond is less than minimum!"))
+                    resultCh!(vState, (false, "Bond is less than minimum!"))
                   } else if (amount > $$maximumBond$$) {
-                    resultCh!(state, (false, "Bond is greater than maximum!"))
+                    resultCh!(vState, (false, "Bond is greater than maximum!"))
                   } else {
-                    deposit!(deployerId, amount, state.get("activeValidators"), *depositCh) |
+                    deposit!(deployerId, amount, vState.get("activeValidators"), *depositCh) |
                     for (@depositResult <- depositCh) {
                       match depositResult {
                         (true, _) => {
+                          // Updates validator's local state.
+                          // TODO: consolidate all local bond map changes before choosing active validators.
                           resultCh!(
-                            state.set("allBonds",
-                                       state.get("allBonds").set(userPk,amount)),
-                            depositResult)
+                            vState.set("allBonds", vState.get("allBonds").set(userPk,amount)),
+                            depositResult
+                          )
                         }
                         (false, errorMsg) => {
-                          resultCh!(state, (false, "Bond deposit failed: " ++ errorMsg))
+                          resultCh!(vState, (false, "Bond deposit failed: " ++ errorMsg))
                         }
                       }
                     }
@@ -164,32 +176,37 @@ in {
                 }
               }
             } |
-            // TODO: resolve state update (can be postponed until epoch change)
+            // TODO: explain changes
             contract PoS(@"withdraw", @deployerId, returnCh) = {
               new userCh, processCh,
-                  getBlockData(`rho:block:data`),
-                  blockDataCh
+                  getBlockData(`rho:block:data`), blockDataCh
               in {
-                runMVar!(*stateCh, *processCh, *returnCh) |
-                getBlockData!(*blockDataCh) |
-                getUser!(deployerId, *userCh) |
-                for (@state, resultCh   <- processCh;
-                     @userPk            <- userCh;
-                     @blockNumber, _, _ <- blockDataCh) {
-                  if (state.get("allBonds").contains(userPk)) {
-                    // Quarantine period goes into effect at the beginning of the next epoch.
-                    resultCh!(
-                      state.set("withdrawers",
-                                state.get("withdrawers")
-                                     .set(userPk,
-                                       blockNumber + $$quarantineLength$$ + $$epochLength$$ - (blockNumber % $$epochLength$$))),
-                      (true, Nil))
-                  } else {
-                    resultCh!(state, (false, "User is not bonded"))
+                // Peeks at global state and current block data to access and update the block sender's state.
+                for (@state <<- stateCh) {
+                  getBlockData!(*blockDataCh) |
+                  for (@blockNumber, _, @sender <- blockDataCh) {
+                    runMVar!(state.get("stateChs").get(sender), *processCh, *returnCh)
+                    getUser!(deployerId, *userCh) |
+                    for (@vState, resultCh <- processCh;
+                         @userPk           <- userCh) {
+                      if (state.get("allBonds").contains(userPk)) {
+                        // Quarantine period goes into effect at the beginning of the next epoch.
+                        // TODO: consolidate all local withdrawers map changes before choosing active validators.
+                        resultCh!(
+                          vState.set("withdrawers",
+                                    vState.get("withdrawers")
+                                         .set(userPk,
+                                           blockNumber + $$quarantineLength$$ + $$epochLength$$ - (blockNumber % $$epochLength$$))),
+                         (true, Nil))
+                      } else {
+                       resultCh!(vState, (false, "User is not bonded"))
+                      }
+                    }
                   }
                 }
               }
             } |
+            // TODO: explain charge deploy
             new currentDeployerData in {
               contract PoS(@"chargeDeploy", @deployerId, @amount, return) = {
                 new depositCh in {
@@ -250,22 +267,25 @@ in {
                       in {
                         getBlockData!(*blockDataCh) |
                         for (_, _, @sender <- blockDataCh) {
-                          // Block sender refunds deployer.
+                          // Block sender refunds deployer if overcharged.
                           transferFromBlockSender!(sender, deployerRevAddress, refundAmount, *transferCh) |
                           // Once refund is finished, rewards are distributed to all active validators.
                           for (@transferResult <- transferCh){
                             match transferResult {
                               (true, _) => {
-                                // Get bonds and active validators and send rewards delta map on rewardsCh.
+                                // Get bonds and active validators, then send rewards delta map on sender's.
                                 for (@state <<- stateCh) {
-                                  for (@update <<- updateCh) {
-                                    distributeRewardDeltas!(
+                                  for (@vState <- @{state.get("stateChs").get(sender)}) {
+                                    // Stake-weighted reward distribution, updates sender's local state.
+                                    distributeRewards!(
                                       initialPaymentAmount - refundAmount,
-                                      state.get("activeValidators"),
-                                      state.get("allBonds"),
-                                      update.get(sender).get("reward")) |
+                                      vState.get("activeValidators"),
+                                      vState.get("allBonds"),
+                                      vState.get("pendingRewards"),
+                                      state.get("stateChs").get(sender)
+                                    ) |
                                     return!((true, Nil)) |
-                                    out!("refundDeploy")
+                                    out!(["refundDeploy", sender]) // TODO: remove
                                   }
                                 }
                               }
@@ -281,28 +301,33 @@ in {
                 }
               }
             } |
-            // TODO: resolve state update (probably cannot be postponed...)
+            // TODO: should be postponed to epoch change where all slashed validator funds should be
+            // TODO: redistributed to the other (non-slashed) current active validators
             contract PoS(@"slash", @deployerId, @blockHash, returnCh) = {
               new userCh, invalidBlocksCh, doSlashCh,
-                  getInvalidBlocks(`rho:casper:invalidBlocks`)
+                  getInvalidBlocks(`rho:casper:invalidBlocks`),
+                  getBlockData(`rho:block:data`), blockDataCh
               in {
                 getInvalidBlocks!(*invalidBlocksCh) |
                 getUser!(deployerId, *userCh) |
-                runMVar!(*stateCh, *doSlashCh, *returnCh) |
-                for (@invalidBlocks        <- invalidBlocksCh;
-                     @userPk               <- userCh;
-                     @state, slashResultCh <- doSlashCh) {
+                // Peeks at global state and current block data to access and update the block sender's state.
+                for (@state <<- stateCh) {
+                  getBlockData!(*blockDataCh) |
+                  for (_, _, @sender <- blockDataCh) {
+                    runMVar!(state.get("stateChs").get(sender), *doSlashCh, *returnCh)
+                  }
+                } |
+                for (@invalidBlocks         <- invalidBlocksCh;
+                     @userPk                <- userCh;
+                     @vState, slashResultCh <- doSlashCh) {
                   new toBeSlashed in {
                     toBeSlashed!(invalidBlocks.getOrElse(blockHash, userPk)) |
                     for (@validator <- toBeSlashed) {
                       // TODO: Transfer to coop wallet instead of just simply setting bonds to 0
                       slashResultCh!(
-                        state.set("pendingRewards",
-                                  state.get("pendingRewards").set(validator, 0))
-                             .set("committedRewards",
-                                  state.get("committedRewards").set(validator, 0))
-                             .set("allBonds",
-                                  state.get("allBonds").set(validator, 0)),
+                        vState.set("pendingRewards", vState.get("pendingRewards").set(validator, 0))
+                             .set("committedRewards", vState.get("committedRewards").set(validator, 0))
+                             .set("allBonds", vState.get("allBonds").set(validator, 0)),
                         true)
                     }
                   }
@@ -325,16 +350,23 @@ in {
                 in {
                   getBlockData!(*blockDataCh) |
                   for (@blockNumber, _, @sender <- blockDataCh) {
+                    // TODO: accumulate sender's updates
                     if (blockNumber % $$epochLength$$ == 0) {
-                      // TODO: needs to be finished & need to update updateCh map if there are new bonded validators
+                      // TODO: need to update validators' local states
                       // Updating the global state.
+                      // TODO: merge all local state changes
                       runMVar!(*stateCh, *mvarProcessCh, *ackCh) |
                       for (@state, mvarResultCh <- mvarProcessCh) {
-                        accumulateDeposits!(state.get("activeValidators"), sender, *accDepositsDoneCh) |
+                        accumulateDeposits!(
+                          state.get("activeValidators"),
+                          sender,
+                          *accDepositsDoneCh) |
                         for (_ <- accDepositsDoneCh) {
-                          // TODO: needs to be changed to accumulate from updateCh
+                          // TODO: needs to be changed to accumulate from sender's state channel
+                          //runMVar!(*vStateCh, *mvarProcessCh, *ackCh) |
+                          //for (@update, mvarResultCh <- mvarProcessCh) {
                           commitRewards!(
-                            state.get("pendingRewards"),
+                            Sum over all val: update.get(val).get("reward"),
                             state.get("committedRewards"),
                             *commitRewardsCh) |
                           // Chooses active validators for the next epoch.
@@ -548,6 +580,7 @@ in {
             }
           }
         } |
+        // Computes rewards delta and adds to current map.
         contract distributeRewards(@amount, @activeValidators, @bonds, @originalRewards, returnCh) = {
           new rewardsDeltaCh,
               computeMergeMap
@@ -563,6 +596,7 @@ in {
             }
           }
         } |
+        // TODO: move back to distributeRewards ^^^
         contract distributeRewardDeltas(@amount, @activeValidators, @bonds, returnCh) = {
           new computeSum,
               totalActiveStakeCh,
@@ -584,21 +618,44 @@ in {
           }
         }
       } |
-      // Creates unforgeable update channels for each validator.
-      contract createUpdateMap(@bonds, retCh) = {
-        new updateMapEntry in {
-          contract updateMapEntry(@(pk, _), resCh) = {
-            new rewardCh,
-                slashCh,
-                withdrawCh
-            in {
-              resCh!((pk, { "reward" : *rewardCh, "slash" : *slashCh, "withdraw" : *withdrawCh }))
-            }
-          } |
-          new listCh in {
-            @ListOps!("map", bonds.toList(), *updateMapEntry, *listCh) |
-            for (@list <- listCh) {
-              retCh!(list.toMap())
+      contract createPerValidatorStateChs(@activeList, retCh) = {
+        new resCh in {
+          @ListOps!("parMap", activeList, *createValidatorUpdateCh, *resCh) |
+          for (@list <- resCh) {
+            retCh!(list.toMap())
+          }
+        }
+      } |
+      // Creates unforgeable update channel for each active validator.
+      // Should a validator's update channel change each epoch?
+      contract createPerValidatorStateCh(@validator, retCh) = {
+        new updateCh in {
+          retCh!((validator, *updateCh))
+        }
+      } |
+      // Replicates global state onto each validator's personal state channel.
+      for (@state <<- stateCh) {
+        // map.remove is not implemented yet :(
+        // TODO: change to map.remove(validator) once implemented
+        new stateNoUpdateCh in {
+          stateNoUpdateCh!({
+            "pendingRewards":state.get("pendingRewards"),
+            "committedRewards":state.get("committedRewards"),
+            "activeValidators":state.get("activeValidators"),
+            "withdrawers":state.get("withdrawers"),
+            "randomImages":state.get("randomImages"),
+            "randomNumbers":state.get("randomNumbers"),
+            "allBonds":state.get("allBonds")
+          }) |
+          for (@stateNoUpdate <- stateNoUpdateCh) {
+            contract createPerValidatorStates(@state, @activeList) = {
+              match activeList {
+                [h ...t] => {
+                  @{state.get("updateChs").get(h)}!(stateNoUpdate) |
+                  createPerValidatorStates!(state, t)
+                }
+                _ => Nil
+              }
             }
           }
         }

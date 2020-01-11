@@ -58,16 +58,17 @@ new TreeHashMap, rs(`rho:registry:insertSigned:secp256k1`), uriOut in {
       powersCh, storeToken, nodeGet, nodeSetBit, nodeSetMap in {
     powersCh!([1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536]) |
     for (@powers <- powersCh) {
+      // Initializes node with initVal.
       contract MakeNode(@initVal, @node) = {
         @[node, *storeToken]!(initVal)
       } |
-        
+      // Peeks at value stored on node.
       contract nodeGet(@node, ret) = {
         for (@val <<- @[node, *storeToken]) {
           ret!(val)
         }
       } |
-
+      //
       contract nodeSetBit(@node, @bit, ack) = {
         for (@val <- @[node, *storeToken]) {
           // val | (1 << bit)
@@ -78,7 +79,7 @@ new TreeHashMap, rs(`rho:registry:insertSigned:secp256k1`), uriOut in {
           ack!(Nil)
         }
       } |
-      
+      //
       contract nodeSetMap(@node, @newKey, @newVal, ack) = {
         for (@val <- @[node, *storeToken]) {
           ack!(Nil) |
@@ -86,7 +87,7 @@ new TreeHashMap, rs(`rho:registry:insertSigned:secp256k1`), uriOut in {
           else { @[node, *storeToken]!(val.set(newKey, newVal)) }
         }
       } |
-
+      //
       contract ByteArrayToNybbleList(@ba, @n, @len, @acc, ret) = {
         if (n == len) {
           ret!(acc)
@@ -94,7 +95,7 @@ new TreeHashMap, rs(`rho:registry:insertSigned:secp256k1`), uriOut in {
           ByteArrayToNybbleList!(ba, n+1, len, acc ++ [ ba.nth(n) % 16, ba.nth(n) / 16 ], *ret)
         }
       } |
-
+      // Initializes (*map, []) node with 0.
       contract TreeHashMap(@"init", @depth, ret) = {
         new map in {
           MakeNode!(0, (*map, [])) |
@@ -102,7 +103,7 @@ new TreeHashMap, rs(`rho:registry:insertSigned:secp256k1`), uriOut in {
           ret!(*map)
         }
       } |
-
+      //
       contract TreeHashMapGetter(@map, @nybList, @n, @len, @suffix, ret) = {
         // Look up the value of the node at [map, nybList.slice(0, n + 1)]
         new valCh in {

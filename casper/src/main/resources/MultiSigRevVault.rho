@@ -27,8 +27,8 @@ in {
   rl!(`rho:lang:listOps`, *ListOpsCh) |
   rl!(`rho:rchain:authKey`, *AuthKeyCh) |
   rl!(`rho:rchain:revVault`, *RevVaultCh) |
-  for(@(_, ListOps) <- ListOpsCh;
-      @(_, AuthKey) <- AuthKeyCh;
+  for(@(_, ListOps)  <- ListOpsCh;
+      @(_, AuthKey)  <- AuthKeyCh;
       @(_, RevVault) <- RevVaultCh) {
 
     contract MultiSigRevVault(@"makeSealerUnsealer", ret) = {

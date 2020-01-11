@@ -11,7 +11,7 @@ Broadly speaking, the Mercury RChain network is a directed acyclic graph ("dag")
 ### Locales
 
 #### Regions and Regional Namespaces
-Each locale has a set of **regions** that forms the basis for a complete lattice of **regional namespaces**.  For example, if a locale had 3 regions A, B, and C, it would have 2³=8 regional namespaces ⊥, A, B, C, A∨B, A∨C, B∨C, and A∨B∨C.
+Each locale has a set of **regions** that forms the basis for a complete lattice of **regional namespaces**.  For example, if a locale had 3 regions A, B, and C, it would have 2³=8 regional namespaces `⊥`, `A`, `B`, `C`, `A∨B`, `A∨C`, `B∨C`, and `A∨B∨C`.
 
 Regions set performance criteria that participating validators must meet or be ejected; they also set the staking requirements.
 
@@ -19,7 +19,7 @@ Regions set performance criteria that participating validators must meet or be e
 
 Names are quoted Rholang processes.  The quotation is denoted syntactically by an at-sign `@`.  
 
-Each name belongs to a regional namespace.  Ground terms belong to the bottom regional namespace ⊥; names declared using the `new` keyword belong to the namespace in which the code runs by default, but may have a regional namespace annotation to create a name in a different regional namespace; and all other quoted processes belong to the namespace of the join of all the names in the quoted process.
+Each name belongs to a regional namespace.  Ground terms belong to the bottom regional namespace `⊥`; names declared using the `new` keyword belong to the namespace in which the code runs by default, but may have a regional namespace annotation to create a name in a different regional namespace; and all other quoted processes belong to the namespace of the join of all the names in the quoted process.
 
 #### Structural and behavioral namespaces
 A **structural namespace** is a collection of names that share a common portion of their abstract syntax tree.  Dynamic structural namespaces are supported as patterns in the `contract`, `for`, and `match` productions.  Static structural namespaces are under development and will be checked at deployment time.

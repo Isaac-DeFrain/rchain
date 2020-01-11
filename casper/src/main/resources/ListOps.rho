@@ -28,8 +28,8 @@ new  ListOps, rs(`rho:registry:insertSigned:secp256k1`), uriOut in {
   //function which returns a [boolean, value] pair.
   //Use cases: see get and indexOf
   new loop in {
-    contract loop(@accumulatedValue, @lst, combinatorAndCondition, return) = {
-      match lst {
+    contract loop(@accumulatedValue, @list, combinatorAndCondition, return) = {
+      match list {
         [head ...tail] => {
           new result in {
             combinatorAndCondition!(head, accumulatedValue, *result) |

@@ -28,7 +28,6 @@ in {
           internalMakePurse,
           decr
       in {
-        // May access vaultMapStore???
         contract thisMint(@"makePurse", @init, return) = {
           new balanceCh in {
             @NonNegativeNumber!(init, *balanceCh) |
@@ -38,7 +37,7 @@ in {
           }
         } |
         contract internalMakePurse(balance, return) = {
-          //balance must be a name that NonNegativeNumber contract is listening on
+          // balance must be a name that NonNegativeNumber contract is listening on
           new thisPurse in {
             new letCh in { // let thisDecr = ...
               letCh!(bundle0{bundle0{*thisPurse}|*decr}) |
@@ -77,7 +76,6 @@ in {
                 }
               }
             } |
-            // May need to access vaultStore???
             contract thisPurse(@"deposit", @amount, @src, success) = {
               new result in {
                 @src!(bundle0{bundle0{src}|*decr}, amount, *result) | //call src decr function.
