@@ -29,14 +29,14 @@ $ pyenv install 3.7.3
 $ env PYENV_VERSION=3.7.3 ~/.pyenv/shims/python -m pip install pipenv
 ```
 
-## Step 4: Dependencies
+## Step 5: Dependencies
 
 ```bash
 $ cd integration-tests/
 $ env PYENV_VERSION=3.7.3 ~/.pyenv/shims/python -m pipenv sync
 ```
 
-## Step 4: Create the rnode docker image
+## Step 6: Create the rnode docker image
 
 Tests use RNode Docker image. If environment variable `${DRONE_BUILD_NUMBER}` is
 defined, then `coop.rchain/rnode:DRONE-${DRONE_BUILD_NUMBER}` image is used.
@@ -65,7 +65,7 @@ variable `$TMPDIR`) has to be accessible by the host as well **on the same
 path**. The reason for the latter is that tests spawn additional containers and
 need to share files with them. They do it by mounting files/directories from
 `/tmp` (or `$TMPDIR`) into new containers, i.e. by starting new containers with
-e.g. `-v /tmp/bonds.txt:/var/lib/rnode/genesis/bonds.txt` arugments. But these
+e.g. `-v /tmp/bonds.txt:/var/lib/rnode/genesis/bonds.txt` arguments. But these
 arguments are passed via shared Docker socket to Docker daemon running on the
 host. So the Docker daemon has to be able to access `/tmp/bonds.txt` as well.
 
@@ -74,6 +74,12 @@ host. So the Docker daemon has to be able to access `/tmp/bonds.txt` as well.
 The tests are run using *pytest*. If you want to have a deep understanding of the whole framework you should check
 [pytest documentation](https://docs.pytest.org/en/latest/contents.html#toc)
 
+Before running tests, make sure to do
+
+```bash
+$ export PYENV_VERSION=3.7.3
+```
+
 The tests can be run using the bash script
 
 ```bash
@@ -81,7 +87,7 @@ $ ./run_tests.sh
 ```
 
 In order to run only specific tests can specify the test subdir where you want
-the discovery to start
+the discovery to start.
 
 Examples:
 Run the tests for the complete connected network:
@@ -120,14 +126,14 @@ $ ./run_tests.sh --collect-only
 $ ./run_tests.sh --collect-only  test/test_star_connected.py
 ```
 
-The test can runs the [mypy](https://pypi.org/project/pytest-mypy/) static type checker on your source files as part of
-your Pytest test runs now. It is not enabled by default now. You can run the static type checker test by the command below.
+The tests can run the [mypy](https://pypi.org/project/pytest-mypy/) static type checker on your source files as part of
+your PyTest test runs. It is not enabled by default now. You can run the static type checker test by the command below.
 
 ```bash
 $ ./run_tests.sh --mypy
 ```
 
-If you want to restrict your test run to only perform mypy checks and not any other tests by using the `-m` option.
+You can restrict your test run to only perform `mypy` checks and no other tests by using the `-m` option.
 
 ```bash
 $ ./run_tests.sh --mypy -m mypy

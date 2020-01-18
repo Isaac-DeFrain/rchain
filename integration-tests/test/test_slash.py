@@ -99,7 +99,7 @@ def test_slash_invalid_block_hash(command_line_options: CommandLineOptions, rand
 @pytest.mark.skipif(sys.platform in ('win32', 'cygwin', 'darwin'), reason="Only Linux docker support connection between host and container which node client needs")
 def test_slash_invalid_block_number(command_line_options: CommandLineOptions, random_generator: Random, docker_client: DockerClient) -> None:
     """
-    Propose an block with invalid block number(a block number that isn't one more than the max of all the parents block's numbers).
+    Propose a block with invalid block number(a block number that isn't one more than the max of all the parents block's numbers).
     """
     with three_nodes_network_with_node_client(command_line_options, random_generator, docker_client) as  (context, _ , validator1, validator2, client):
         contract = '/opt/docker/examples/tut-hello.rho'
