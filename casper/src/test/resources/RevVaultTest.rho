@@ -18,7 +18,6 @@ match (
 
     new
       rl(`rho:registry:lookup`),
-      stdlog(`rho:io:stdlog`),
       RhoSpecCh,
       ListOpsCh,
       getDeployerId(`rho:test:deployerId:make`),
@@ -195,19 +194,22 @@ match (
       } |
 
       contract testLogging(rhoSpec, RevVault, ackCh) = {
-        new genesisVaultCh, aliceVaultCh, ret, transferSuccessful  in {
+        new RevAddress(`rho:rev:address`), genesisVaultCh, aliceVaultCh, ret in {
           withVaultAndIdentityOf!(genesisPubKey, *genesisVaultCh) |
           RevVault!("findOrCreate", aliceRevAddress, *aliceVaultCh) |
-          for (genesisVault, @genesisVaultKey <- genesisVaultCh; @(true, aliceVault) <- aliceVaultCh) {
-            new ack, logCh, assertCh1, assertCh2 in {
-              genesisVault!("setLog", *logCh, genesisVaultKey, *ack) |
-              for (_ <- ack) {
-                genesisVault!("transfer", aliceRevAddress, 1000, genesisVaultKey, *ret) |
-                for (@["transfer", revAddress, amount, result, blockNumber, timestamp, sender] <- logCh) {
-                  rhoSpec!("assert", 
-                    ([aliceRevAddress, 1000, (true, Nil)] == [revAddress, amount, result]), 
-                    "transfer successfully logged", 
-                    *ackCh)
+          for (genesisVault, @genesisVaultKey <- genesisVaultCh;
+               @(true, *aliceVault) <- aliceVaultCh) {
+            new logCh in {
+              genesisVault!("transfer", aliceRevAddress, 1000, genesisVaultKey, *ret) |
+              for (_ <- ret) {
+                aliceVault!("readN", 1, *logCh) |
+                for (@[hd] <- logCh) {
+                  rhoSpec!("assert",
+                    ([genesisRevAddress, aliceRevAddress, 1000, (true, Nil)] ==
+                      [hd.get("from"), hd.get("to"), hd.get("amount"), hd.get("result")]),
+                    "transfer successfully logged",
+                    *ackCh
+                  )
                 }
               }
             }
@@ -234,7 +236,6 @@ match (
               }
             }
           }
-
         }
       } |
 
